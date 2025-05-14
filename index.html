@@ -387,7 +387,9 @@
 
         // Adicionar Nova Venda
         document.getElementById('form-venda').addEventListener('submit', function(event) {
-            event.preventDefault();
+            event.preventDefault(); // Previne o envio padrão do formulário
+
+            console.log("Evento de submit do formulário de venda acionado."); // Log para verificar se o evento é disparado
 
             const clienteNome = document.getElementById('venda-cliente-nome').value.trim();
             const data = document.getElementById('venda-data').value;
@@ -395,7 +397,13 @@
             const precoKg = parseFloat(document.getElementById('venda-preco-kg').value);
             const valorTotal = parseFloat(document.getElementById('venda-valor-total').value); // Pega o valor (calculado ou editado)
 
+            console.log("Valores do formulário:", { clienteNome, data, peso, precoKg, valorTotal }); // Log dos valores
+
+            // Verifica se os campos obrigatórios estão preenchidos e os valores numéricos são válidos
             if (clienteNome && data && !isNaN(peso) && peso > 0 && !isNaN(precoKg) && precoKg >= 0 && !isNaN(valorTotal) && valorTotal >= 0) {
+
+                console.log("Validação do formulário bem-sucedida."); // Log se a validação passou
+
                 const newSale = {
                     id: generateId(),
                     clientName: clienteNome,
@@ -406,8 +414,13 @@
                     isPaid: false // Nova propriedade para o status de pagamento
                 };
 
+                console.log("Novo objeto de venda criado:", newSale); // Log do objeto de venda
+
                 sales.push(newSale);
                 saveData(); // Salva no localStorage
+
+                console.log("Venda adicionada e dados salvos."); // Log após salvar
+
                 document.getElementById('form-venda').reset(); // Limpa o formulário
                  // Define a data atual novamente após resetar
                 document.getElementById('venda-data').valueAsDate = new Date();
@@ -415,6 +428,7 @@
                 // Opcional: Mudar para a lista de vendas após salvar
                 // showSection('lista-vendas');
             } else {
+                console.log("Validação do formulário falhou."); // Log se a validação falhou
                 alert('Por favor, preencha todos os campos da venda corretamente.');
             }
         });
