@@ -78,6 +78,15 @@
             text-align: left;
              font-size: 0.9rem; /* Fonte um pouco menor para compactar */
         }
+
+         /* Ajustes responsivos para células da tabela em telas pequenas */
+        @media (max-width: 640px) { /* Ponto de quebra 'sm' do Tailwind */
+             .table th, .table td {
+                 padding: 0.5rem; /* Reduz o padding em telas pequenas */
+                 font-size: 0.8rem; /* Reduz o tamanho da fonte */
+             }
+        }
+
         .table th {
             background-color: #e9ecef; /* Fundo cinza claro para o cabeçalho da tabela */
             font-weight: bold;
@@ -362,7 +371,7 @@
                 // Garante que o cálculo inicial seja feito se houver valores padrão
                  calculateTotal();
             } else if (sectionId === 'resumos') {
-                 renderSummaries();
+                 renderSummaries(); // Garante que os resumos sejam renderizados ao mostrar a seção
             }
 
             // Esconde as opções do FAB após selecionar uma seção
@@ -506,16 +515,20 @@
             }
         }
 
-        // Excluir Venda
+        // Excluir Venda (sem confirmação)
         function deleteSale(saleId) {
-            if (confirm('Tem certeza que deseja excluir esta venda?')) {
-                sales = sales.filter(sale => sale.id !== saleId); // Remove a venda do array
-                saveData(); // Salva a mudança
-                renderSales(); // Atualiza a lista na tela
-                 // Atualiza os resumos também, caso a seção esteja visível
-                 if (!document.getElementById('resumos').classList.contains('hidden')) {
-                    renderSummaries();
-                }
+            console.log("Função deleteSale acionada para o ID:", saleId); // Log para verificar se a função é chamada e o ID
+
+            // Filtra o array sales, removendo a venda com o ID correspondente
+            sales = sales.filter(sale => sale.id !== saleId);
+
+            saveData(); // Salva a mudança no localStorage
+            console.log("Venda removida e dados salvos."); // Log após remover e salvar
+
+            renderSales(); // Atualiza a lista de vendas na tela
+            // Atualiza os resumos também, caso a seção esteja visível
+            if (!document.getElementById('resumos').classList.contains('hidden')) {
+                renderSummaries();
             }
         }
 
@@ -532,6 +545,8 @@
 
         // Renderizar Resumos (Geral e por Cliente)
         function renderSummaries(filteredClients = null) {
+            console.log("Renderizando resumos..."); // Log no início da função
+
              // Calcula o resumo geral
             let totalKgSold = 0;
             let totalKgPaid = 0;
@@ -560,20 +575,24 @@
                     };
                 }
                 clientSummaries[sale.clientName].kgSold += sale.weight;
-                clientSummaries[sale.clientName].valueSold += sale.total;
+                clientSummaries[sale.clientName].valueSold += sale.total; // Corrigido: Usar sale.total
                 if (sale.isPaid) {
                     clientSummaries[sale.clientName].kgPaid += sale.weight;
-                    clientSummaries[sale.clientName].valuePaid += sale.total;
+                    clientSummaries[sale.clientName].valuePaid += sale.total; // Corrigido: Usar sale.total
                 }
             });
+
+            console.log("Totais calculados:", { totalKgSold, totalKgPaid, totalValueSold, totalValuePaid }); // Log dos totais gerais
+            console.log("Resumos por cliente:", clientSummaries); // Log dos resumos por cliente
+
 
             // Atualiza o resumo geral na tela, aplicando formatação de peso onde necessário
             document.getElementById('resumo-total-kg-vendido').textContent = formatWeight(totalKgSold) + ' Kg';
             document.getElementById('resumo-total-kg-pago').textContent = formatWeight(totalKgPaid) + ' Kg';
-            document.getElementById('resumo-total-kg-faltam').textContent = formatWeight(totalKgSold - totalKgPaid) + ' Kg'; // Mantém toFixed(2) para a diferença, se preferir
+            document.getElementById('resumo-total-kg-faltam').textContent = formatWeight(totalKgSold - totalKgPaid) + ' Kg';
             document.getElementById('resumo-total-rs-vendido').textContent = 'R$ ' + totalValueSold.toFixed(2).replace('.', ',');
             document.getElementById('resumo-total-rs-pago').textContent = 'R$ ' + totalValuePaid.toFixed(2).replace('.', ',');
-            document.getElementById('resumo-total-rs-faltam').textContent = 'R$ ' + (totalValueSold - totalValuePaid).toFixed(2).replace('.', ','); // Mantém toFixed(2) para a diferença, se preferir
+            document.getElementById('resumo-total-rs-faltam').textContent = 'R$ ' + (totalValueSold - totalValuePaid).toFixed(2).replace('.', ',');
 
             // Renderiza o resumo por cliente, aplicando formatação de peso
             const listaResumosClienteBody = document.getElementById('lista-resumos-cliente');
@@ -589,13 +608,18 @@
 
             if (clientsToRender.length === 0) {
                 listaResumosClienteBody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhum resumo de cliente para exibir.</td></tr>';
+                console.log("Nenhum resumo de cliente para renderizar."); // Log se não houver clientes para renderizar
                 return;
             }
+
+             console.log("Clientes a serem renderizados:", clientsToRender); // Log dos clientes a serem renderizados
 
             clientsToRender.forEach(clientName => {
                 const summary = clientSummaries[clientName];
                 const kgFaltam = summary.kgSold - summary.kgPaid;
                 const rsFaltam = summary.valueSold - summary.valuePaid;
+
+                 console.log(`Renderizando resumo para ${clientName}:`, summary); // Log do resumo de cada cliente
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -606,6 +630,7 @@
                 `;
                 listaResumosClienteBody.appendChild(row);
             });
+             console.log("Resumos por cliente renderizados."); // Log após renderizar a tabela
         }
 
          // Filtrar Resumos por Cliente na Lista
