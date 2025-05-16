@@ -223,11 +223,11 @@
                     <thead>
                         <tr>
                             <th>Pago</th>
-                            <th>Data</th>
                             <th>Cliente</th>
                             <th>Peso (Kg)</th>
                             <th>Preço/Kg</th>
                             <th>Total</th>
+                            <th>Data</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -436,6 +436,21 @@
 
         // --- Seção Histórico de Vendas ---
 
+        // Função para formatar o peso (Kg)
+        function formatWeight(weight) {
+            const integerPart = Math.floor(weight);
+            const decimalPart = weight - integerPart;
+
+            if (decimalPart === 0) {
+                return integerPart.toString(); // Ex: 2.00 -> "2"
+            } else if (Math.abs(decimalPart - 0.5) < 0.005) { // Verifica se é aproximadamente .5
+                 // Se a parte inteira for 0, mostra apenas ½
+                return integerPart === 0 ? '½' : `${integerPart}½`; // Ex: 2.50 -> "2½", 0.50 -> "½"
+            } else {
+                return weight.toFixed(2); // Mantém 2 casas decimais para outros casos
+            }
+        }
+
         // Renderizar Lista de Vendas
         function renderSales(filteredSales = sales) {
             const listaVendasBody = document.getElementById('lista-vendas-body');
@@ -460,12 +475,10 @@
                     <td>
                         <input type="checkbox" ${sale.isPaid ? 'checked' : ''} onchange="togglePaidStatus('${sale.id}')">
                     </td>
-                    <td>${sale.date}</td>
                     <td>${sale.clientName}</td>
-                    <td>${sale.weight.toFixed(2)}</td>
-                    <td>R$ ${sale.pricePerKg.toFixed(2)}</td>
+                    <td>${formatWeight(sale.weight)}</td> <td>R$ ${sale.pricePerKg.toFixed(2)}</td>
                     <td>R$ ${sale.total.toFixed(2)}</td>
-                    <td>
+                    <td>${sale.date}</td> <td>
                         <button class="btn-danger text-xs" onclick="deleteSale('${sale.id}')">Excluir</button>
                     </td>
                 `;
@@ -548,15 +561,15 @@
                 }
             });
 
-            // Atualiza o resumo geral na tela
-            document.getElementById('resumo-total-kg-vendido').textContent = totalKgSold.toFixed(2) + ' Kg';
-            document.getElementById('resumo-total-kg-pago').textContent = totalKgPaid.toFixed(2) + ' Kg';
-            document.getElementById('resumo-total-kg-faltam').textContent = (totalKgSold - totalKgPaid).toFixed(2) + ' Kg';
+            // Atualiza o resumo geral na tela, aplicando formatação de peso onde necessário
+            document.getElementById('resumo-total-kg-vendido').textContent = formatWeight(totalKgSold) + ' Kg';
+            document.getElementById('resumo-total-kg-pago').textContent = formatWeight(totalKgPaid) + ' Kg';
+            document.getElementById('resumo-total-kg-faltam').textContent = (totalKgSold - totalKgPaid).toFixed(2) + ' Kg'; // Mantém toFixed(2) para a diferença, se preferir
             document.getElementById('resumo-total-rs-vendido').textContent = 'R$ ' + totalValueSold.toFixed(2).replace('.', ',');
             document.getElementById('resumo-total-rs-pago').textContent = 'R$ ' + totalValuePaid.toFixed(2).replace('.', ',');
-            document.getElementById('resumo-total-rs-faltam').textContent = 'R$ ' + (totalValueSold - totalValuePaid).toFixed(2).replace('.', ',');
+            document.getElementById('resumo-total-rs-faltam').textContent = 'R$ ' + (totalValueSold - totalValuePaid).toFixed(2).replace('.', ','); // Mantém toFixed(2) para a diferença, se preferir
 
-            // Renderiza o resumo por cliente
+            // Renderiza o resumo por cliente, aplicando formatação de peso
             const listaResumosClienteBody = document.getElementById('lista-resumos-cliente');
             listaResumosClienteBody.innerHTML = ''; // Limpa a lista atual
 
@@ -581,10 +594,652 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${clientName}</td>
-                    <td>${summary.kgSold.toFixed(2)} Kg</td>
-                    <td class="text-green-600">${summary.kgPaid.toFixed(2)} Kg</td>
-                    <td class="${kgFaltam > 0.005 ? 'text-red-600' : ''}">${kgFaltam.toFixed(2)} Kg</td>
-                    <td>R$ ${summary.valueSold.toFixed(2).replace('.', ',')}</td>
+                    <td>${formatWeight(summary.kgSold)} Kg</td> <td class="text-green-600">${formatWeight(summary.kgPaid)} Kg</td> <td class="${kgFaltam > 0.005 ? 'text-red-600' : ''}">${formatWeight(kgFaltam)} Kg</td> <td>R$ ${summary.valueSold.toFixed(2).replace('.', ',')}</td>
+                    <td class="text-green-600">R$ ${summary.valuePaid.toFixed(2).replace('.', ',')}</td>
+                    <td class="${rsFaltam > 0.005 ? 'text-red-600' : ''}">R$ ${rsFaltam.toFixed(2).replace('.', ',')}</td>
+                `;
+                listaResumosClienteBody.appendChild(row);
+            });
+        }
+
+         // Filtrar Resumos por Cliente na Lista
+        function filterSummaries() {
+            const searchTerm = document.getElementById('buscar-resumo-cliente').value.toLowerCase();
+            // Passa o termo de busca para a função de renderização
+            renderSummaries(searchTerm);
+        }
+
+
+        // --- Inicialização ---
+        document.addEventListener('DOMContentLoaded', (event) => {
+            loadData(); // Carrega os dados ao carregar a página
+            showSection('registrar-venda'); // Mostra a seção Registrar Venda por padrão
+
+            // Adiciona listener para o botão principal do FAB
+            document.getElementById('main-fab').addEventListener('click', function() {
+                const fabContainer = document.getElementById('fab-container');
+                const fabOptions = document.getElementById('fab-options');
+                fabContainer.classList.toggle('expanded'); // Alterna a classe 'expanded' no contêiner
+                // Alterna a visibilidade usando hidden do Tailwind
+                if (fabOptions.classList.contains('hidden')) {
+                    fabOptions.classList.remove('hidden');
+                } else {
+                    fabOptions.classList.add('hidden');
+                }
+            });
+
+             // Adiciona listeners para os botões de opção do FAB
+             document.querySelectorAll('#fab-options .nav-button').forEach(button => {
+                 button.addEventListener('click', function() {
+                     // A função showSection já esconde as opções, mas garantimos aqui também
+                     document.getElementById('fab-container').classList.remove('expanded');
+                     document.getElementById('fab-options').classList.add('hidden');
+                 });
+             });
+        });
+
+    </script>
+
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Açougue Fácil - Simplificado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Estilos personalizados para cores e fontes */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa; /* Fundo claro */
+            color: #343a40; /* Texto escuro padrão */
+            /* Aumenta o padding na parte inferior para o FAB */
+            padding-bottom: 200px; /* Aumentado consideravelmente para dar mais espaço */
+        }
+        .header {
+            background-color: #495057; /* Cinza escuro para o cabeçalho */
+            color: #e9ecef; /* Texto claro */
+        }
+        .container {
+            max-width: 960px;
+        }
+        .card {
+            background-color: #ffffff; /* Fundo branco para os cards */
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .form-input, .form-select {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #ced4da; /* Borda cinza claro */
+            width: 100%;
+            box-sizing: border-box; /* Inclui padding e borda no tamanho total */
+            font-size: 0.9rem; /* Fonte um pouco menor para compactar */
+        }
+         .form-input[readonly] {
+            background-color: #e9ecef; /* Fundo cinza claro para campos somente leitura */
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background-color: #28a745; /* Verde para botões primários (salvar/adicionar) */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #218838; /* Verde um pouco mais escuro no hover */
+        }
+        .btn-danger {
+            background-color: #dc3545; /* Vermelho para botões de exclusão */
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.3s ease;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse; /* Remove espaços entre as bordas das células */
+        }
+        .table th, .table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #dee2e6; /* Borda inferior cinza claro */
+            text-align: left;
+             font-size: 0.9rem; /* Fonte um pouco menor para compactar */
+        }
+        .table th {
+            background-color: #e9ecef; /* Fundo cinza claro para o cabeçalho da tabela */
+            font-weight: bold;
+        }
+        .table tbody tr:hover {
+            background-color: #f1f1f1; /* Fundo levemente cinza no hover da linha */
+        }
+         .sale-paid {
+            text-decoration: line-through; /* Risca a linha se a venda estiver paga */
+            color: #6c757d; /* Texto cinza para vendas pagas */
+        }
+         .text-green-600 {
+            color: #28a745; /* Verde para valores positivos/pagos */
+         }
+         .text-red-600 {
+            color: #dc3545; /* Vermelho para valores negativos/a pagar */
+         }
+         /* Ajustes para compactar o formulário de venda */
+         #form-venda .grid {
+             gap: 0.75rem; /* Reduz o espaçamento entre os itens do grid */
+         }
+         #form-venda label {
+             margin-bottom: 0.25rem; /* Reduz o espaço abaixo dos labels */
+         }
+         #form-venda .form-input, #form-venda .form-select {
+             padding: 0.5rem 0.75rem; /* Reduz o padding interno dos inputs */
+         }
+         #form-venda .text-xs {
+             margin-top: 0.25rem; /* Reduz o espaço acima do texto de ajuda */
+         }
+
+        /* Estilos para o Floating Action Button (FAB) */
+        #fab-container {
+            position: fixed;
+            /* Ajusta a posição para garantir visibilidade */
+            bottom: 80px; /* Aumentado consideravelmente para descer o FAB */
+            right: 20px;
+            z-index: 1050; /* Aumenta o z-index para garantir que fique acima de tudo */
+            display: flex;
+            flex-direction: column; /* Opções empilhadas verticalmente */
+            align-items: flex-end; /* Alinha as opções à direita */
+        }
+
+        #main-fab {
+            background-color: #007bff; /* Cor azul */
+            color: white;
+            width: 56px; /* Tamanho do botão */
+            height: 56px;
+            border-radius: 50%; /* Torna o botão redondo */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem; /* Tamanho do ícone/texto */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Sombra */
+            cursor: pointer;
+            transition: transform 0.3s ease; /* Animação de rotação */
+            border: none; /* Remove a borda padrão do botão */
+            outline: none; /* Remove o contorno ao focar */
+        }
+
+        #fab-container.expanded #main-fab {
+             transform: rotate(45deg); /* Rotaciona o ícone/botão ao expandir */
+        }
+
+        #fab-options {
+            margin-bottom: 10px; /* Espaço entre as opções e o botão principal */
+            opacity: 0; /* Inicialmente invisível */
+            visibility: hidden; /* Inicialmente não interativo */
+            transition: opacity 0.3s ease, visibility 0.3s ease; /* Transição suave */
+            display: flex;
+            flex-direction: column; /* Opções em coluna */
+            align-items: flex-end; /* Alinha as opções à direita */
+             /* Adicionado para garantir que as opções fiquem acima de outros elementos */
+            z-index: 1040; /* Z-index ligeiramente menor que o do container, mas alto */
+        }
+
+        #fab-container.expanded #fab-options {
+            opacity: 1; /* Torna visível */
+            visibility: visible; /* Torna interativo */
+        }
+
+        #fab-options .nav-button {
+            background-color: #6c757d; /* Cor cinza para as opções */
+            color: white;
+            margin-bottom: 8px; /* Aumenta um pouco o espaço entre os botões de opção */
+            padding: 0.5rem 1rem; /* Padding menor para os botões de opção */
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra menor */
+            white-space: nowrap; /* Evita que o texto quebre linha */
+            transition: background-color 0.3s ease;
+            cursor: pointer;
+            border: none; /* Remove a borda padrão */
+            outline: none; /* Remove o contorno ao focar */
+        }
+
+         #fab-options .nav-button:hover {
+             background-color: #5a6268; /* Cinza um pouco mais escuro no hover */
+         }
+         #fab-options .nav-button.active {
+             background-color: #007bff; /* Azul para o botão ativo */
+             color: white;
+         }
+
+    </style>
+</head>
+<body class="p-6">
+
+    <header class="header py-4 px-6 rounded-lg mb-6 text-center">
+        <h1 class="text-2xl font-bold">Meu Açougue Fácil</h1>
+        <p class="text-sm">Gestão de Vendas no Crédito (por Kg)</p>
+    </header>
+
+    <main class="container mx-auto">
+
+        <section id="registrar-venda" class="app-section card p-6">
+            <h2 class="text-xl font-semibold mb-4">Registrar Nova Venda</h2>
+
+            <form id="form-venda" class="grid grid-cols-1 md:grid-cols-2 gap-3"> <div>
+                    <label for="venda-cliente-nome" class="block text-sm font-medium mb-1">Nome do Cliente:</label>
+                    <input type="text" id="venda-cliente-nome" class="form-input" required>
+                </div>
+                 <div>
+                    <label for="venda-data" class="block text-sm font-medium mb-1">Data da Venda:</label>
+                    <input type="date" id="venda-data" class="form-input" required>
+                </div>
+                <div>
+                    <label for="venda-peso" class="block text-sm font-medium mb-1">Peso (Kg):</label>
+                    <input type="number" id="venda-peso" class="form-input" step="0.01" required oninput="calculateTotal()">
+                </div>
+                <div>
+                    <label for="venda-preco-kg" class="block text-sm font-medium mb-1">Preço por Kg:</label>
+                    <input type="number" id="venda-preco-kg" class="form-input" step="0.01" value="25.00" required oninput="calculateTotal()">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="venda-valor-total" class="block text-sm font-medium mb-1">Valor Total:</label>
+                    <input type="number" id="venda-valor-total" class="form-input" step="0.01" required>
+                     <p class="text-xs text-gray-500 mt-1">Calculado automaticamente, mas pode ser editado.</p>
+                </div>
+                <div class="md:col-span-2 mt-2 flex justify-center">
+                    <button type="submit" class="btn-primary">Salvar Venda</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="lista-vendas" class="app-section card p-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">Histórico de Vendas</h2>
+
+            <input type="text" id="buscar-venda" class="form-input mb-4" placeholder="Buscar venda por cliente..." onkeyup="filterSales()">
+
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Pago</th>
+                            <th>Cliente</th>
+                            <th>Peso (Kg)</th>
+                            <th>Preço/Kg</th>
+                            <th>Total</th>
+                            <th>Data</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-vendas-body">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="resumos" class="app-section card p-6 hidden">
+             <h2 class="text-xl font-semibold mb-4">Resumos e Saldos</h2>
+
+             <div class="mb-6">
+                 <h3 class="text-lg font-medium mb-3">Resumo Geral</h3>
+                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                     <div class="p-4 border rounded-md">
+                         <p class="text-sm font-medium">Total Vendido (Kg)</p>
+                         <p id="resumo-total-kg-vendido" class="text-xl font-bold">-</p>
+                     </div>
+                     <div class="p-4 border rounded-md">
+                         <p class="text-sm font-medium">Total Pago (Kg)</p>
+                         <p id="resumo-total-kg-pago" class="text-xl font-bold text-green-600">-</p>
+                     </div>
+                      <div class="p-4 border rounded-md">
+                         <p class="text-sm font-medium">Falta Pagar (Kg)</p>
+                         <p id="resumo-total-kg-faltam" class="text-xl font-bold text-red-600">-</p>
+                     </div>
+                      <div class="p-4 border rounded-md">
+                         <p class="text-sm font-medium">Total Vendido (R$)</p>
+                         <p id="resumo-total-rs-vendido" class="text-xl font-bold">-</p>
+                     </div>
+                     <div class="p-4 border rounded-md">
+                         <p class="text-sm font-medium">Total Pago (R$)</p>
+                         <p id="resumo-total-rs-pago" class="text-xl font-bold text-green-600">-</p>
+                     </div>
+                      <div class="p-4 border rounded-md">
+                         <p class="text-sm font-medium">Falta Pagar (R$)</p>
+                         <p id="resumo-total-rs-faltam" class="text-xl font-bold text-red-600">-</p>
+                     </div>
+                 </div>
+             </div>
+
+             <div>
+                 <h3 class="text-lg font-medium mb-3">Resumo por Cliente</h3>
+                 <input type="text" id="buscar-resumo-cliente" class="form-input mb-3" placeholder="Buscar cliente por nome..." onkeyup="filterSummaries()">
+                  <div class="overflow-x-auto">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Vendido (Kg)</th>
+                                <th>Pago (Kg)</th>
+                                <th>Falta (Kg)</th>
+                                <th>Vendido (R$)</th>
+                                <th>Pago (R$)</th>
+                                <th>Falta (R$)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-resumos-cliente">
+                            </tbody>
+                    </table>
+                 </div>
+             </div>
+        </section>
+
+
+    </main>
+
+    <div id="fab-container">
+        <div id="fab-options" class="hidden">
+            <button class="nav-button" onclick="showSection('registrar-venda')">Registrar Venda</button>
+            <button class="nav-button" onclick="showSection('lista-vendas')">Histórico de Vendas</button>
+            <button class="nav-button" onclick="showSection('resumos')">Resumos/Saldos</button>
+        </div>
+        <button id="main-fab">
+            <i class="fas fa-bars"></i> </button>
+    </div>
+
+
+    <script>
+        // --- Variáveis Globais ---
+        let sales = []; // Array para armazenar as vendas
+
+        // --- Carregar Dados do localStorage ---
+        function loadData() {
+            const storedSales = localStorage.getItem('sales');
+            if (storedSales) {
+                sales = JSON.parse(storedSales);
+            }
+        }
+
+        // --- Salvar Dados no localStorage ---
+        function saveData() {
+            localStorage.setItem('sales', JSON.stringify(sales));
+        }
+
+        // --- Gerar ID Único ---
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        // --- Navegação entre Seções ---
+        function showSection(sectionId) {
+            // Oculta todas as seções
+            document.querySelectorAll('.app-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+
+            // Remove a classe 'active' de todos os botões de navegação (agora nos FAB options)
+            document.querySelectorAll('#fab-options .nav-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Exibe a seção desejada
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            // Adiciona a classe 'active' ao botão de navegação correspondente no FAB
+            document.querySelector(`#fab-options button[onclick="showSection('${sectionId}')"]`).classList.add('active');
+
+            // Atualiza as listas/resumos ao mudar de seção
+            if (sectionId === 'lista-vendas') {
+                renderSales();
+            } else if (sectionId === 'registrar-venda') {
+                 // Define a data atual no campo de data da venda ao entrar na seção
+                document.getElementById('venda-data').valueAsDate = new Date();
+                // Garante que o cálculo inicial seja feito se houver valores padrão
+                 calculateTotal();
+            } else if (sectionId === 'resumos') {
+                 renderSummaries();
+            }
+
+            // Esconde as opções do FAB após selecionar uma seção
+            document.getElementById('fab-container').classList.remove('expanded');
+            document.getElementById('fab-options').classList.add('hidden');
+        }
+
+        // --- Formulário Registrar Venda ---
+
+        // Calcular Valor Total automaticamente
+        function calculateTotal() {
+            const pesoInput = document.getElementById('venda-peso');
+            const precoKgInput = document.getElementById('venda-preco-kg');
+            const totalInput = document.getElementById('venda-valor-total');
+
+            const peso = parseFloat(pesoInput.value);
+            const precoKg = parseFloat(precoKgInput.value);
+
+            // Verifica se os valores são números válidos
+            if (!isNaN(peso) && peso > 0 && !isNaN(precoKg) && precoKg >= 0) {
+                const total = peso * precoKg;
+                 // Atualiza o campo de valor total com o cálculo, formatado para 2 casas decimais
+                totalInput.value = total.toFixed(2);
+            } else {
+                // Limpa o campo total se os inputs não forem válidos
+                totalInput.value = '';
+            }
+        }
+
+        // Adicionar Nova Venda
+        document.getElementById('form-venda').addEventListener('submit', function(event) {
+            event.preventDefault(); // Previne o envio padrão do formulário
+
+            console.log("Evento de submit do formulário de venda acionado."); // Log para verificar se o evento é disparado
+
+            const clienteNome = document.getElementById('venda-cliente-nome').value.trim();
+            const data = document.getElementById('venda-data').value;
+            const peso = parseFloat(document.getElementById('venda-peso').value);
+            const precoKg = parseFloat(document.getElementById('venda-preco-kg').value);
+            const valorTotal = parseFloat(document.getElementById('venda-valor-total').value); // Pega o valor (calculado ou editado)
+
+            console.log("Valores do formulário:", { clienteNome, data, peso, precoKg, valorTotal }); // Log dos valores
+
+            // Verifica se os campos obrigatórios estão preenchidos e os valores numéricos são válidos
+            if (clienteNome && data && !isNaN(peso) && peso > 0 && !isNaN(precoKg) && precoKg >= 0 && !isNaN(valorTotal) && valorTotal >= 0) {
+
+                console.log("Validação do formulário bem-sucedida."); // Log se a validação passou
+
+                const newSale = {
+                    id: generateId(),
+                    clientName: clienteNome,
+                    date: data,
+                    weight: peso,
+                    pricePerKg: precoKg,
+                    total: valorTotal, // Usa o valor do campo, que pode ter sido editado
+                    isPaid: false // Nova propriedade para o status de pagamento
+                };
+
+                console.log("Novo objeto de venda criado:", newSale); // Log do objeto de venda
+
+                sales.push(newSale);
+                saveData(); // Salva no localStorage
+
+                console.log("Venda adicionada e dados salvos."); // Log após salvar
+
+                document.getElementById('form-venda').reset(); // Limpa o formulário
+                 // Define a data atual novamente após resetar
+                document.getElementById('venda-data').valueAsDate = new Date();
+                alert('Venda registrada com sucesso!');
+                // Opcional: Mudar para a lista de vendas após salvar
+                // showSection('lista-vendas');
+            } else {
+                console.log("Validação do formulário falhou."); // Log se a validação falhou
+                alert('Por favor, preencha todos os campos da venda corretamente.');
+            }
+        });
+
+        // --- Seção Histórico de Vendas ---
+
+        // Função para formatar o peso (Kg)
+        function formatWeight(weight) {
+            const integerPart = Math.floor(weight);
+            const decimalPart = weight - integerPart;
+
+            if (decimalPart === 0) {
+                return integerPart.toString(); // Ex: 2.00 -> "2"
+            } else if (Math.abs(decimalPart - 0.5) < 0.005) { // Verifica se é aproximadamente .5
+                 // Se a parte inteira for 0, mostra apenas ½
+                return integerPart === 0 ? '½' : `${integerPart}½`; // Ex: 2.50 -> "2½", 0.50 -> "½"
+            } else {
+                return weight.toFixed(2); // Mantém 2 casas decimais para outros casos
+            }
+        }
+
+        // Renderizar Lista de Vendas
+        function renderSales(filteredSales = sales) {
+            const listaVendasBody = document.getElementById('lista-vendas-body');
+            listaVendasBody.innerHTML = ''; // Limpa a lista atual
+
+            if (filteredSales.length === 0) {
+                listaVendasBody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhuma venda registrada.</td></tr>';
+                return;
+            }
+
+            // Ordena as vendas por data (mais recente primeiro)
+            const sortedSales = filteredSales.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            sortedSales.forEach(sale => {
+                const row = document.createElement('tr');
+                // Adiciona a classe 'sale-paid' se a venda estiver paga para riscar a linha
+                if (sale.isPaid) {
+                    row.classList.add('sale-paid');
+                }
+
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" ${sale.isPaid ? 'checked' : ''} onchange="togglePaidStatus('${sale.id}')">
+                    </td>
+                    <td>${sale.clientName}</td>
+                    <td>${formatWeight(sale.weight)}</td> <td>R$ ${sale.pricePerKg.toFixed(2)}</td>
+                    <td>R$ ${sale.total.toFixed(2)}</td>
+                    <td>${sale.date}</td> <td>
+                        <button class="btn-danger text-xs" onclick="deleteSale('${sale.id}')">Excluir</button>
+                    </td>
+                `;
+                listaVendasBody.appendChild(row);
+            });
+        }
+
+        // Marcar/Desmarcar Venda como Paga
+        function togglePaidStatus(saleId) {
+            const saleIndex = sales.findIndex(sale => sale.id === saleId);
+            if (saleIndex !== -1) {
+                sales[saleIndex].isPaid = !sales[saleIndex].isPaid; // Inverte o status
+                saveData(); // Salva a mudança
+                renderSales(); // Atualiza a lista na tela
+                 // Atualiza os resumos também, caso a seção esteja visível
+                if (!document.getElementById('resumos').classList.contains('hidden')) {
+                    renderSummaries();
+                }
+            }
+        }
+
+        // Excluir Venda
+        function deleteSale(saleId) {
+            if (confirm('Tem certeza que deseja excluir esta venda?')) {
+                sales = sales.filter(sale => sale.id !== saleId); // Remove a venda do array
+                saveData(); // Salva a mudança
+                renderSales(); // Atualiza a lista na tela
+                 // Atualiza os resumos também, caso a seção esteja visível
+                 if (!document.getElementById('resumos').classList.contains('hidden')) {
+                    renderSummaries();
+                }
+            }
+        }
+
+         // Filtrar Vendas na Lista
+        function filterSales() {
+            const searchTerm = document.getElementById('buscar-venda').value.toLowerCase();
+            const filtered = sales.filter(sale =>
+                sale.clientName.toLowerCase().includes(searchTerm)
+            );
+            renderSales(filtered);
+        }
+
+        // --- Seção Resumos/Saldos ---
+
+        // Renderizar Resumos (Geral e por Cliente)
+        function renderSummaries(filteredClients = null) {
+             // Calcula o resumo geral
+            let totalKgSold = 0;
+            let totalKgPaid = 0;
+            let totalValueSold = 0;
+            let totalValuePaid = 0;
+
+            // Objeto para armazenar resumos por cliente
+            const clientSummaries = {};
+
+            sales.forEach(sale => {
+                // Resumo Geral
+                totalKgSold += sale.weight;
+                totalValueSold += sale.total;
+                if (sale.isPaid) {
+                    totalKgPaid += sale.weight;
+                    totalValuePaid += sale.total;
+                }
+
+                // Resumo por Cliente
+                if (!clientSummaries[sale.clientName]) {
+                    clientSummaries[sale.clientName] = {
+                        kgSold: 0,
+                        kgPaid: 0,
+                        valueSold: 0,
+                        valuePaid: 0
+                    };
+                }
+                clientSummaries[sale.clientName].kgSold += sale.weight;
+                clientSummaries[sale.clientName].valueSold += sale.total;
+                if (sale.isPaid) {
+                    clientSummaries[sale.clientName].kgPaid += sale.weight;
+                    clientSummaries[sale.clientName].valuePaid += sale.total;
+                }
+            });
+
+            // Atualiza o resumo geral na tela, aplicando formatação de peso onde necessário
+            document.getElementById('resumo-total-kg-vendido').textContent = formatWeight(totalKgSold) + ' Kg';
+            document.getElementById('resumo-total-kg-pago').textContent = formatWeight(totalKgPaid) + ' Kg';
+            document.getElementById('resumo-total-kg-faltam').textContent = (totalKgSold - totalKgPaid).toFixed(2) + ' Kg'; // Mantém toFixed(2) para a diferença, se preferir
+            document.getElementById('resumo-total-rs-vendido').textContent = 'R$ ' + totalValueSold.toFixed(2).replace('.', ',');
+            document.getElementById('resumo-total-rs-pago').textContent = 'R$ ' + totalValuePaid.toFixed(2).replace('.', ',');
+            document.getElementById('resumo-total-rs-faltam').textContent = 'R$ ' + (totalValueSold - totalValuePaid).toFixed(2).replace('.', ','); // Mantém toFixed(2) para a diferença, se preferir
+
+            // Renderiza o resumo por cliente, aplicando formatação de peso
+            const listaResumosClienteBody = document.getElementById('lista-resumos-cliente');
+            listaResumosClienteBody.innerHTML = ''; // Limpa a lista atual
+
+            const clientNames = Object.keys(clientSummaries).sort(); // Ordena os nomes dos clientes
+
+            // Filtra os clientes se um termo de busca for fornecido
+            const clientsToRender = filteredClients ?
+                clientNames.filter(name => name.toLowerCase().includes(filteredClients.toLowerCase())) :
+                clientNames;
+
+
+            if (clientsToRender.length === 0) {
+                listaResumosClienteBody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhum resumo de cliente para exibir.</td></tr>';
+                return;
+            }
+
+            clientsToRender.forEach(clientName => {
+                const summary = clientSummaries[clientName];
+                const kgFaltam = summary.kgSold - summary.kgPaid;
+                const rsFaltam = summary.valueSold - summary.valuePaid;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${clientName}</td>
+                    <td>${formatWeight(summary.kgSold)} Kg</td> <td class="text-green-600">${formatWeight(summary.kgPaid)} Kg</td> <td class="${kgFaltam > 0.005 ? 'text-red-600' : ''}">${formatWeight(kgFaltam)} Kg</td> <td>R$ ${summary.valueSold.toFixed(2).replace('.', ',')}</td>
                     <td class="text-green-600">R$ ${summary.valuePaid.toFixed(2).replace('.', ',')}</td>
                     <td class="${rsFaltam > 0.005 ? 'text-red-600' : ''}">R$ ${rsFaltam.toFixed(2).replace('.', ',')}</td>
                 `;
